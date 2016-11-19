@@ -1,0 +1,33 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>ThreadedChat</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <script src="/bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="bower_components/web-animations-js/web-animations.min.js"></script>
+    <link rel="import" href="bower_components/platinum-sw/platinum-sw-elements.html">
+    <link rel="import" href="bower_components/polymerfire/firebase-app.html">
+    <link rel="import" href="/src/ThreadedChat-app/ThreadedChat-app.html">
+  </head>
+  <body vertical layout>
+  <platinum-sw-register
+      auto-register
+      skip-waiting
+      clients-claim
+      reload-on-install
+      href="sw-import.js">
+    <platinum-sw-cache
+      default-cache-strategy="networkFirst">
+    </platinum-sw-cache>
+    </platinum-sw-register>
+    <firebase-app
+      name="threadedchat"
+      api-key="AIzaSyBmNUevqVpMKWD6ocaheTdv74BHPzu9bOI"
+      auth-domain="threadedchat.firebaseapp.com"
+      database-url="https://threadedchat.firebaseio.com">
+    <ThreadedChat-app></ThreadedChat-app>
+  </body>
+</html>

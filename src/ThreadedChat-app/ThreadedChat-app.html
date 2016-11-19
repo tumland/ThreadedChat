@@ -1,0 +1,592 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link href="../../bower_components/paper-drawer-panel/paper-drawer-panel.html" rel="import">
+<link href="../../bower_components/paper-toolbar/paper-toolbar.html" rel="import">
+<link href="../../bower_components/paper-icon-button/paper-icon-button.html" rel="import">
+<link href="../../bower_components/paper-material/paper-material.html" rel="import">
+<link href="../../bower_components/paper-menu/paper-menu.html" rel="import">
+<link href="../../bower_components/paper-item/paper-item.html" rel="import">
+<link href="../../bower_components/paper-input/paper-input.html" rel="import">
+<link href="../../bower_components/iron-icons/iron-icons.html" rel="import">
+<link rel="import" href="../../bower_components/iron-icons/communication-icons.html">
+<link href="../../bower_components/iron-pages/iron-pages.html" rel="import">
+<link href="../../bower_components/paper-fab/paper-fab.html" rel="import">
+<link href="../../bower_components/paper-tabs/paper-tabs.html" rel="import">
+<link href="../../bower_components/paper-card/paper-card.html" rel="import">
+<link href="../../bower_components/paper-dialog/paper-dialog.html" rel="import">
+<link href="../../bower_components/paper-toast/paper-toast.html" rel="import">
+<link href="../../bower_components/paper-listbox/paper-listbox.html" rel="import">
+<link href="../../bower_components/paper-button/paper-button.html" rel="import">
+<link href="../../bower_components/paper-header-panel/paper-header-panel.html" rel="import">
+<link href="../../bower_components/platinum-push-messaging/platinum-push-messaging.html" rel="import">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+
+<link rel="import" href="../../bower_components/app-storage/app-indexeddb-mirror/app-indexeddb-mirror.html">
+
+<link rel="import" href="../../bower_components/polymerfire/firebase-auth.html">
+<link rel="import" href="../../bower_components/polymerfire/firebase-app.html">
+<link rel="import" href="../../bower_components/polymerfire/firebase-document.html">
+<link rel="import" href="../../bower_components/polymerfire/firebase-query.html">
+
+<link rel="import" href="tc-toolbar.html">
+<link rel="import" href="tc-login.html">
+
+<dom-module id="ThreadedChat-app">
+  <template>
+    <style>
+      :host {
+        display: block;
+        background-color: #e8e8e8;
+        height: 100vh;
+        @apply(--paper-font-common-base);
+
+        --paper-fab-background: var(--paper-teal-500);
+      }
+
+      .notes {
+        position: relative;
+        box-sizing: border-box;
+        padding: 1em;
+        max-height: calc(100vh - 46px);
+        overflow: auto;
+      }
+
+      tc-note {
+        margin-bottom: 1em;
+      }
+
+      paper-fab {
+        position: absolute;
+        bottom: 5em;
+        right: 1em;
+        z-index: 2;
+      }
+
+      paper-toolbar {
+        padding: 6px 8px;
+      }
+
+      #yaca-bottom-toolbar {
+        @apply(--layout-fixed-bottom);
+        @apply(--layout-horizontal);
+        background-color: var(--paper-purple-300);
+        color: var(--paper-purple-39);
+        padding: 10px 8px;
+        --paper-icon-button-disabled: {
+          color: var(--paper-purple-39);
+        };
+      }
+
+      #yaca-bottom-toolbar paper-input {
+        padding: 10px;
+      }
+
+      #yaca-bottom-toolbar paper-icon-button {
+        position: absolute;
+        right: 0em;
+      }
+
+      paper-tabs {
+         box-shadow: 0px 3px 2px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        font-size: 14px;
+        flex-grow: 1;
+        margin: 9px 0;
+      }
+
+      paper-listbox .message {
+       @apply(--layout-vertical); 
+      }
+
+      .message {
+        flex-grow: 1;
+      }
+
+      paper-item:nth-child(even) {
+        text-align: left;
+      }
+
+      paper-item:nth-child(odd) {
+        text-align: right;
+      }
+
+      paper-item-body {
+        width: 100%;
+      }
+
+      tc-toolbar {
+        width: 100%;
+      }
+
+      paper-tab {
+        text-align: left;
+        border: 1px;
+      }
+
+      paper-material .message {
+        padding: 5px;
+        margin-top: 5px;
+        margin-bottom: 5px;
+      }
+
+      paper-material .incoming {
+        text-align: left;
+        margin-right: 30px;
+      }
+
+      .incoming {
+        font-size: 10px;
+      }
+
+      paper-material .outgoing {
+        text-align: right;
+        margin-left: 30px ;
+      }
+    </style>
+
+    <paper-drawer-panel horizontal>
+    <paper-header-panel drawer>
+      <paper-toolbar><iron-icon icon="communication:contacts"></iron-icon><h1>  Contacts</h1></paper-toolbar>
+      <paper-listbox 
+        selected="{{selectedContactNum}}">
+          <template is="dom-repeat" items="[[persistedUsers]]" as="user">
+            <paper-item>
+              <iron-icon icon="icons:account-circle"></iron-icon>
+              [[user.displayName]]
+            </paper-item>
+          </template>
+      </paper-listbox>
+    </paper-header-panel>
+    <paper-header-panel main>
+        <paper-toolbar>
+          <paper-icon-button icon="communication:contacts" paper-drawer-toggle></paper-icon-button> 
+          <tc-toolbar
+          signed-in="[[signedIn]]"
+          on-sign-out="signOut">
+          </tc-toolbar>    
+        </paper-toolbar>
+        
+        <paper-tabs selected="{{selectedThreadIndex}}">
+          <template is="dom-repeat" items="[[persistedThreads]]" as="thread">
+            <paper-tab>
+              [[thread.name]]
+              <paper-icon-button icon="delete" on-tap="requestDeleteThread"></paper-icon-button>
+            </paper-tab>
+          </template>
+            <paper-icon-button icon="add"
+              on-tap="createNewThread"></paper-icon-button>
+        </paper-tabs>
+    <paper-material elevation="1">
+      <paper-listbox class="message" selected="{{selectedMessageIndex}}">
+        <template is="dom-repeat" items="[[persistedMessages]]" as="message">
+          <template is="dom-if" if="[[isIncoming(message)]]">
+            <paper-item>
+              <paper-material elevation="1" animated class="message incoming"><h2>[[message.text]]</h2></paper-material>
+              <div class="incoming message">[[message.fromname]] - [[message.timestamp]]</div>
+            </paper-item>
+          </template>
+          <template is="dom-if" if="[[!isIncoming(message)]]">
+            <paper-item>
+              <paper-material elevation="1" animated class="message outgoing">[[message.text]]</paper-material>
+            </paper-item>
+          </template>
+        </template>
+      </paper-listbox>
+           <paper-toolbar id="yaca-bottom-toolbar">
+        <div class="middle fit">
+          <paper-input
+            label="Type message and hit enter..."
+            value="{{messageText}}"
+            on-change="publishMessage" flex>
+            <paper-icon-button suffix icon="send"
+              on-tap="publishMessage">
+            </paper-icon-button>
+          </paper-input>
+        </div>
+      </paper-toolbar>
+
+      </paper-material>
+
+
+        </paper-header-panel>
+      </paper-drawer-panel>
+
+
+
+
+
+
+    <tc-login
+      on-sign-in="signIn"
+      signed-in="[[signedIn]]"
+      disabled="[[!online]]">
+    </tc-login>
+    <firebase-auth
+      id="auth" 
+      app-name="threadedchat"
+      provider="google"
+      signed-in="{{signedIn}}"
+      user="{{user}}">
+    </firebase-auth>
+<!--
+    <paper-fab 
+      icon="add"
+      on-tap="createNewThread"
+      disabled="[[!online]]"
+      aria-label="Create a new thread.">
+    </paper-fab>
+-->    
+
+    
+   <paper-toast text="[[errorMessage]]" id="errorToast">
+   </paper-toast>
+
+   <paper-dialog id="deleteConfirmDialog"
+    modal="true">
+     <h2>Are you sure you want to delete the thread?</h2>
+     <p><b>All messages will be lost for fucking forever!</b></p>
+     <div class="buttons">
+       <paper-button dialog-confirm on-tap="deleteThread">FUCKING DELETE</paper-button>
+       <paper-button dialog-dismiss autofocus>Cancel</paper-button>
+     </div>
+    </paper-dialog>
+
+  <platinum-push-messaging id="testPush"
+  title="Application updated"
+  message="The application was updated in the background"
+  icon-url="icon.png"
+  click-url="notification.html">
+</platinum-push-messaging>
+
+    <!-- Firebase stuff -->
+
+    <!-- object model:
+      List auth'd users: /users/
+
+      thread: /threads/<my-uid>/buddies/<buddy-uid>/{thread-id}
+      
+      messages: /messages/<thread-id>/{message}
+
+      Each buddy/thread pair is it's own page
+
+      We'll query all threads at once, it's slower but okay for prototype
+    -->
+
+    <firebase-document
+      id="threadDocument"
+      app-name="threadedchat">
+    </firebase-document>
+
+    <firebase-document
+      id="messageDoc"
+      app-name="threadedchat">
+    </firebase-document>
+
+    <firebase-document
+      id="userDocument"
+      app-name="threadedchat">
+    </firebase-document>
+
+    <firebase-query
+      id="query"
+      app-name="threadedchat"
+      path="/users"
+      data="{{users}}">
+    </firebase-query>
+
+    <firebase-query
+      id="threadsQuery"
+      app-name="threadedchat"
+      path=""
+      data="{{threads}}">
+    </firebase-query>
+
+    <firebase-query
+      id="messagesQuery"
+      app-name="threadedchat"
+      path="/threads/[[user.uid]]/buddies/[[targetUser.uid]]/[[targetThreadID]]/messages/"
+      data="{{messages}}"
+      limit-to-last="10">
+    </firebase-query>
+
+    <app-indexeddb-mirror
+      session="[[user.uid]]"
+      key="threads"
+      data="{{threads}}"
+      persisted-data="{{persistedThreads}}">
+    </app-indexeddb-mirror>
+
+    <app-indexeddb-mirror
+      session="[[user.uid]]"
+      key="users"
+      data="{{users}}"
+      persisted-data="{{persistedUsers}}">
+    </app-indexeddb-mirror>
+
+    <app-indexeddb-mirror
+      session="[[user.uid]]"
+      key="messages"
+      data="{{messages}}"
+      persisted-data="{{persistedMessages}}">
+    </app-indexeddb-mirror>
+
+  </template>
+
+  <script>
+    Polymer({
+
+      is: 'ThreadedChat-app',
+
+      properties: {
+        threads: {
+          type: Object,
+          notify: true,
+          reflectToAttribute: true,
+        },
+        messages: {
+          type: Object,
+          notify: true,
+        },
+        messageText: {
+          type: String,
+          notify: true,
+          value: ''
+        },
+        user: {
+          type: Object,
+          observer: 'connectUser'
+        },
+        selectedContactNum: {
+          type: Number,
+          notify: true,
+          observer: 'updateTargetUser',
+          value: 0
+        },
+        selectedMessageIndex: Number,
+        users: {
+          type: Object,
+          notify: true
+        },
+        targetUser: {
+          type: Object,
+          notify: true
+        },
+        targetThreadID: {
+          type: String,
+          notify: true
+        },
+        targetThread: {
+          type: Object,
+          notify: true
+        },
+        selectedThreadIndex: {
+          type: Number,
+          notify: true,
+          value: 0,
+        },
+        maxThreads: {
+          type: Number,
+          value: 4
+        },
+      },
+      behaviors: [Polymer.AppNetworkStatusBehavior],
+
+      observers: [
+        'updateTargetThread(selectedThreadIndex, threads.splices)',
+        'updateTargetUser(selectedContactNum, users.splices)',
+        'updateMessages(targetThreadID, targetThread, targetUser)',
+        'updateThreads(targetUser.uid)',
+      ],
+
+      updateMessages: function(targetThread, targetUser) {
+        this.$.messagesQuery.path = null
+        this.$.messagesQuery.path =
+          '/threads/' + this.user.uid + 
+          '/buddies/' + this.targetUser.uid + 
+          '/' + this.targetThreadID + 
+          '/messages'
+      },
+
+      updateThreads: function(targetUserID) {
+        this.$.threadsQuery.path = null
+        this.$.threadsQuery.path = '/threads/' + this.user.uid + 
+          '/buddies/' + targetUserID
+      },
+
+      updateTargetThread: function(selectedThreadIndex, user, threads) {
+        if (!this.threads.length) {
+          return
+        }
+        this.targetThreadID = this.threads[selectedThreadIndex].$key
+        console.log('targetThreadID: ', this.targetThreadID)
+
+        this.targetThread = this.threads[selectedThreadIndex]
+
+        // copy to target user's path
+
+        console.log('targetThreadID: ', this.targetThreadID)
+        if (this.user.uid != this.targetUser.uid) {
+          this.$.threadDocument.path = null
+          this.$.threadDocument.save(this.targetThreadPath, this.targetThreadID)
+        }
+      },
+
+      updateTargetUser: function(selectedContactNum, user, users) {
+        if (!this.users || !this.users.length) {
+          return
+        }
+        this.set('targetUser', this.users[selectedContactNum])
+        console.log('target user uid: ', this.targetUser.uid)
+      },
+
+      signIn: function() {
+        this.$.auth.signInWithPopup()
+      },
+
+      signOut: function() {
+        if (this.$.auth) {
+          this.$.auth.signOut();
+        }
+      },
+
+      get currentThreadPath() {
+        return '/threads/' + this.user.uid + '/buddies/' + this.targetUser.uid + '/'
+      },
+
+      get targetThreadPath() {
+        return '/threads/' + this.targetUser.uid + '/buddies/' + this.user.uid + '/'
+      },
+
+      get currentMessagePath() {
+        return this.currentThreadPath + this.targetThreadID + '/messages/'
+      },
+
+      get targetMessagePath() {
+        return this.targetThreadPath + this.targetThreadID + '/messages/'
+      },
+
+      connectUser: function() {
+        if (!this.user) {
+          return
+        }
+
+        this.$.userDocument.path = null;
+        this.$.userDocument.data = {
+          uid: this.user.uid,
+          displayName: this.user.displayName
+        }
+        this.$.userDocument.save('/users/', this.user.uid)
+
+        this.selectedContactNum = 0
+      },
+
+      archiveThread: function() {
+
+        this.$.threadDocument.reset() 
+
+        this.$.threadDocument.data = {
+          touid: this.targetThread.touid,
+          fromuid: this.targetThread.fromuid,
+          name: this.targetThread.name,
+          archived: true
+        }
+
+        this.$.threadDocument.save(this.currentThreadPath + this.targetThreadID)
+      },
+
+      canCreateThread: function() {
+        if (this.threads.length >= this.maxThreads) {
+          console.log('Max threads reached.')
+          this.errorMessage = "Maximum number of threads reached. Delete a thread before creating a new one."
+          this.$.errorToast.open()
+          return false
+        }
+        return true
+      },
+
+      createNewThread: function() {
+        if (!this.canCreateThread()) {
+          return
+        }
+
+        this.$.threadDocument.path = null
+
+        this.$.threadDocument.data = {
+          touid: this.targetUser.uid,
+          fromuid: this.user.uid,
+          name: "thread",
+          archived: false,
+        }
+
+        //this.$.threadDocument.save(this.targetThreadPath)
+        this.$.threadDocument.save(this.currentThreadPath)
+
+        this.selectedThreadIndex = this.threads.length - 1
+      },
+
+      copyMessageToNewThread: function() {
+        if (!this.canCreateThread()) {
+          return
+        }
+
+        this.createNewThread()
+        console.log('message to copy: ', this.persistedMessages)
+        this.messageText = this.persistedMessages[this.selectedMessageIndex].text
+        this.publishMessage()
+      },
+
+      requestDeleteThread: function() {
+        this.$.deleteConfirmDialog.open()
+      },
+
+      deleteThread: function() {
+        console.log('deleteThread')
+        this.$.threadDocument.path = this.currentThreadPath + this.targetThreadID
+        this.$.threadDocument.destroy()
+      },
+
+      renameThread: function() {
+        var name = 'renamed'
+        this.$.threadDocument.path = this.currentThreadPath + this.targetThreadID
+        this.$.threadDocument.data = {
+          touid: this.targetUser.uid,
+          fromuid: this.user.uid,
+          name: name,
+          archived: false,
+        }
+        console.log('renamed: ', this.$.threadDocument.data)
+        this.$.threadDocument.save(this.currentThreadPath,this.targetThreadID)        
+      },
+
+      publishMessage: function() {
+
+        this.$.messageDoc.reset()
+        
+        this.$.messageDoc.data = {
+          name: "message",
+          touid: this.targetUser.uid,
+          fromuid: this.user.uid,
+          toname: this.targetUser.displayName,
+          fromname: this.user.displayName,
+          text: this.get('messageText'),
+          timestamp: (new Date()).toString(),
+        }
+
+        this.$.messageDoc.save(this.currentMessagePath)
+        this.$.messageDoc.reset()
+        this.$.messageDoc.save(this.targetMessagePath)
+
+        this.set('messageText','')
+      },
+
+      isIncoming: function(message) {
+        if (message.fromuid == this.user.uid) {
+          return false
+        }
+        return true
+      },
+
+    });
+  </script>
+</dom-module>
