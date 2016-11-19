@@ -61,18 +61,14 @@
         z-index: 2;
       }
 
-      paper-toolbar {
-        padding: 6px 8px;
-      }
-
       #yaca-bottom-toolbar {
         @apply(--layout-fixed-bottom);
         @apply(--layout-horizontal);
-        background-color: var(--paper-purple-300);
-        color: var(--paper-purple-39);
+        background-color: var(--paper-blue-200);
+        color: 000;
         padding: 10px 8px;
         --paper-icon-button-disabled: {
-          color: var(--paper-purple-39);
+          color: var(--paper-blue-39);
         };
       }
 
@@ -101,6 +97,7 @@
 
       .message {
         flex-grow: 1;
+        border-radius: 5px;
       }
 
       paper-item:nth-child(even) {
@@ -192,11 +189,20 @@
             </paper-item>
           </template>
         </template>
+        <paper-item id="last-message-item"></paper-item>
       </paper-listbox>
-           <paper-toolbar id="yaca-bottom-toolbar">
+           
+
+      </paper-material>
+
+
+        </paper-header-panel>
+      </paper-drawer-panel>
+
+<paper-toolbar id="yaca-bottom-toolbar">
         <div class="middle fit">
           <paper-input
-            label="Type message and hit enter..."
+            label="Type message to [[targetUser.displayName]] or select a different user..."
             value="{{messageText}}"
             on-change="publishMessage" flex>
             <paper-icon-button suffix icon="send"
@@ -205,14 +211,6 @@
           </paper-input>
         </div>
       </paper-toolbar>
-
-      </paper-material>
-
-
-        </paper-header-panel>
-      </paper-drawer-panel>
-
-
 
 
 
@@ -561,6 +559,16 @@
 
       publishMessage: function() {
 
+        if (!this.targetUser) {
+          this.errorMessage = "Wait a bit ... still initializing ..."
+          this.errorToast.open()
+          return
+        }
+
+        if (!this.targetThreadID) {
+          this.createNewThread()
+        }
+
         this.$.messageDoc.reset()
         
         this.$.messageDoc.data = {
@@ -578,6 +586,11 @@
         this.$.messageDoc.save(this.targetMessagePath)
 
         this.set('messageText','')
+
+        //Get the main paper-drawer-panel element
+            a = document.querySelector("#last-message-item");
+        // Passing in false scrolls to the bottom of the container, no param to the top.
+            a.scrollIntoView(false)
       },
 
       isIncoming: function(message) {
